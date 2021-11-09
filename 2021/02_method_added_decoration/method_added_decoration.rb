@@ -4,14 +4,12 @@ module Affable
   DEFAULT_POST_TEXT = "Very lovely indeed!"
 
   # Trigger a flag, and save a function in case we want to do something
-  # special here. We add the function to demonstrate this can take arguments
-  # as well.
+  # special here.
   #
   # But won't this persist? No, because a module would need to
   # be included for this to work. See also the persistence test below
-  def extra_affable(&fn)
+  def extra_affable
     @extra_affable = true
-    @extra_affable_fn = fn || -> v { "#{v} #{DEFAULT_POST_TEXT}" }
   end
 
   def method_added(method_name)
@@ -20,13 +18,37 @@ module Affable
     @extra_affable = false
     original_method = instance_method(method_name)
 
-    post_text_function = @extra_affable_fn
-    @extra_affable_fn = nil
+    define_method(method_name) do |*args, &fn|
+      original_result = original_method.bind(self).call(*args, &fn)
+      "#{original_result} Very lovely indeed!"
+    end
+  end
+end
+
+module Affable
+  DEFAULT_POST_TEXT = "Very lovely indeed!"
+
+  # Trigger a flag, and save a function in case we want to do something
+  # special here. We add the function to demonstrate this can take arguments
+  # as well.
+  #
+  # But won't this persist? No, because a module would need to
+  # be included for this to work. See also the persistence test below
+  def extra_affable(&fn)
+    @extra_affable = true
+  end
+
+  def method_added(method_name)
+    return unless @extra_affable
+
+    @extra_affable = false
+    original_method = instance_method(method_name)
+
 
     define_method(method_name) do |*args, &fn|
       original_result = original_method.bind(self).call(*args, &fn)
 
-      post_text_function.call(original_result)
+      "#{original_result} #{DEFAULT_POST_TEXT}"
     end
   end
 end
@@ -43,7 +65,9 @@ class Lemur
     "Farewell! It was lovely to chat."
   end
 
-  extra_affable { |original| "#{original} Yes yes quite so."}
+  # Exercise for the reader: How might this work?
+  #
+  # extra_affable { |original| "#{original} Yes yes quite so."}
 
   def greeting
     "Why hello there! Isn't it a lovely day?"
@@ -60,7 +84,8 @@ RSpec.describe "MethodAddedDecoration" do
       )
     end
 
-    it 'has an extra affable greeting' do
+    # Fix the code above to make this work.
+    xit 'has an extra affable greeting' do
       expect(lemur.greeting).to eq(
         "Why hello there! Isn't it a lovely day? Yes yes quite so."
       )
